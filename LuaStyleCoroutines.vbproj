@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>LuaStyleCoroutines</RootNamespace>
+    
+    <!-- NuGet Package Metadata -->
+    <PackageId>LuaStyleCoroutines</PackageId>
+    <Version>1.0.2</Version>
+    <Authors>Pac-Dessert1436</Authors>
+    <Company></Company>
+    <Description>Lightweight Lua-style coroutines for .NET, with LINQ support and two-way communication.</Description>
+    <PackageTags>coroutine;lua;async;iterator;linq;dotnet;vbnet;csharp</PackageTags>
+    <RepositoryUrl>https://github.com/Pac-Dessert1436/LuaStyleCoroutines</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Pac-Dessert1436/LuaStyleCoroutines</PackageProjectUrl>
+    <PackageLicenseExpression>BSD-3-Clause</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    
+    <!-- Generate documentation -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    
+    <!-- Nullable support -->
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="True" PackagePath="" />
+  </ItemGroup>
+
+</Project>
