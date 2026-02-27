@@ -14,6 +14,11 @@ A lightweight, pure .NET implementation of coroutines inspired by Lua's cooperat
 - ✅ **LINQ Support** - Full LINQ integration for data manipulation
 - ✅ **Lua-friendly** - Includes `coroutine.wrap` functionality via `AsDelegate`
 - ✅ **Resource-aware** - Implements `IDisposable` for proper resource management
+- ✅ **Status Management** - Comprehensive status properties (`IsIdle`, `IsRunning`, `IsCompleted`, `IsForceStopped`)
+- ✅ **Reset Capability** - `TryReset()` method to reset coroutine state
+- ✅ **Fresh Copy** - `FreshCopy()` method to create a new coroutine instance with the same source
+- ✅ **Coroutine Concatenation** - `Concat()` method to combine multiple coroutines
+- ✅ **Enhanced LINQ** - Full set of LINQ extension methods including `Take`, `Skip`, `SelectMany`, `Zip`, and more
 
 ## Quick Example
 - **VB.NET**:
@@ -118,6 +123,75 @@ coro.Cleanup = Sub()
 End Sub
 ```
 
+## Advanced Features
+
+### Fresh Copy
+Create a new coroutine instance with the same source:
+
+```vb
+Dim original As New Coroutine(Of Integer)(Enumerable.Range(1, 5))
+original.Start()
+original.Continue() ' Moves to first element (1)
+
+Dim copy = original.FreshCopy()
+copy.Start()
+copy.Continue() ' Starts from the beginning (1), not from where original left off
+```
+
+### Coroutine Concatenation
+Combine multiple coroutines into one:
+
+```vb
+Dim coro1 As New Coroutine(Of Integer)({1, 2, 3})
+Dim coro2 As New Coroutine(Of Integer)({4, 5, 6})
+Dim combined = Coroutine.Concat(coro1, coro2)
+
+combined.Start()
+While combined.Continue()
+    Console.Write(combined.Current & " ") ' Output: 1 2 3 4 5 6
+End While
+```
+
+### Enhanced LINQ Support
+
+#### Zip Two Coroutines
+
+```vb
+Dim numbers As New Coroutine(Of Integer)({1, 2, 3})
+Dim letters As New Coroutine(Of String)({"a", "b", "c"})
+
+Dim zipped = numbers.Zip(letters, Function(n, l) $"{n}{l}")
+
+zipped.Start()
+While zipped.Continue()
+    Console.Write(zipped.Current & " ") ' Output: 1a 2b 3c
+End While
+```
+
+#### SelectMany for Nested Coroutines
+
+```vb
+Dim outer As New Coroutine(Of Integer)({1, 2, 3})
+Dim result = outer.SelectMany(Function(n) New Coroutine(Of Integer)({n, n * 10}))
+
+result.Start()
+While result.Continue()
+    Console.Write(result.Current & " ") ' Output: 1 10 2 20 3 30
+End While
+```
+
+#### Take and Skip
+
+```vb
+Dim numbers As New Coroutine(Of Integer)(Enumerable.Range(1, 10))
+Dim result = numbers.Skip(2).Take(5) ' Skips first 2, takes next 5
+
+result.Start()
+While result.Continue()
+    Console.Write(result.Current & " ") ' Output: 3 4 5 6 7
+End While
+```
+
 ## Comparison with Lua
 Suppose `coro` is an instance of `Coroutine(Of T)` (or `Coroutine<T>` in C#):
 
@@ -127,16 +201,25 @@ Suppose `coro` is an instance of `Coroutine(Of T)` (or `Coroutine<T>` in C#):
 | `coroutine.resume(co)` | `coro.Continue()` | Resumes the coroutine |
 | `coroutine.resume(co, val)` | `coro.ResumeWith(val)` | Resumes with a value |
 | `coroutine.status(co)` | `coro.IsRunning`/`coro.IsCompleted` | Checks the coroutine status |
-| `coroutine.wrap(f)` | `Coroutine.AsDelegate(f)` | Wraps as a delegate |
+| `coroutine.wrap(f)` | `Coroutine(Of T).AsDelegate(f)` | Wraps as a delegate |
 | `coroutine.yield(val)` | `Yield val` | Yields a value |
+| `coroutine.close(co)` | `coro.Dispose()` | Closes the coroutine (releases resources) |
 
 **Additional API**:
 - `coro.Current` - The current yielded value.
-- `coro.Start()` - Starts the coroutine.
+- `coro.ReceivedData` - Data received from the last `ResumeWith` call.
+- `coro.IsIdle` - Whether the coroutine is in idle state.
+- `coro.IsRunning` - Whether the coroutine is running.
+- `coro.IsCompleted` - Whether the coroutine has completed normally.
+- `coro.IsForceStopped` - Whether the coroutine was force stopped.
+- `coro.Start(reset)` - Starts the coroutine (with optional reset).
+- `coro.Continue()` - Executes the next step of the coroutine.
+- `coro.ResumeWith(data)` - Resumes the coroutine with the given data.
 - `coro.ForceStop()` - Forces the coroutine to stop.
-- `coro.Terminate()` - Terminates the coroutine.
+- `coro.Terminate()` - Terminates the coroutine normally.
 - `coro.TryReset()` - Attempts to reset to initial state.
-- `coro.Dispose()` - Releases resources.
+- `coro.FreshCopy()` - Creates a new coroutine instance with the same source.
+- `Coroutine.Concat(coroutines...)` - Creates a coroutine that yields elements from multiple coroutines in sequence.
 
 ## Installation
 Install via NuGet:

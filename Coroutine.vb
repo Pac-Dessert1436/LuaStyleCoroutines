@@ -5,6 +5,28 @@
 Public Delegate Function CoroutineFunc(Of T)() As IEnumerable(Of T)
 
 ''' <summary>
+''' Status of a coroutine.
+''' </summary>
+Public Enum CoroutineStatus As Byte
+    ''' <summary>
+    ''' The coroutine is not running.
+    ''' </summary>
+    Idle = 0
+    ''' <summary>
+    ''' The coroutine is running.
+    ''' </summary>
+    Running = 1
+    ''' <summary>
+    ''' The coroutine is force stopped.
+    ''' </summary>
+    ForceStopped = 2
+    ''' <summary>
+    ''' The coroutine is completed.
+    ''' </summary>
+    Completed = 3
+End Enum
+
+''' <summary>
 ''' A generic coroutine that manages the execution of a coroutine.
 ''' </summary>
 ''' <typeparam name="T">Data type of the coroutine.</typeparam>
@@ -17,10 +39,9 @@ Public Class Coroutine(Of T)
     Private ReadOnly _enumeratorFactory As Func(Of IEnumerator(Of T))
     Private ReadOnly _sourceEnumerable As IEnumerable(Of T)
 
-    ' Marks the state of the coroutine.
-    Private _isRunning As Boolean = False
-    Private _isForceStopped As Boolean = False
-    Private _isCompleted As Boolean = False
+    ' Marks the status of the coroutine.
+    Public Property Status As CoroutineStatus = CoroutineStatus.Idle
+
     ' Action to be performed when the coroutine is cleaned up.
     Private _cleanup As Action = Nothing
     Private _incomingData As T
@@ -35,11 +56,20 @@ Public Class Coroutine(Of T)
     End Property
 
     ''' <summary>
+    ''' Whether the coroutine is idle.
+    ''' </summary>
+    Public ReadOnly Property IsIdle As Boolean
+        Get
+            Return Status = CoroutineStatus.Idle
+        End Get
+    End Property
+
+    ''' <summary>
     ''' Whether the coroutine is running.
     ''' </summary>
     Public ReadOnly Property IsRunning As Boolean
         Get
-            Return _isRunning AndAlso Not _isForceStopped AndAlso Not _isCompleted
+            Return Status = CoroutineStatus.Running
         End Get
     End Property
 
@@ -48,7 +78,7 @@ Public Class Coroutine(Of T)
     ''' </summary>
     Public ReadOnly Property IsForceStopped As Boolean
         Get
-            Return _isForceStopped
+            Return Status = CoroutineStatus.ForceStopped
         End Get
     End Property
 
@@ -57,7 +87,7 @@ Public Class Coroutine(Of T)
     ''' </summary>
     Public ReadOnly Property IsCompleted As Boolean
         Get
-            Return _isCompleted
+            Return Status = CoroutineStatus.Completed
         End Get
     End Property
 
@@ -119,14 +149,11 @@ Public Class Coroutine(Of T)
     ''' </summary>
     Public Sub Start(Optional reset As Boolean = True)
         ' Resets the state of the coroutine
-        If _isRunning Then Throw New InvalidOperationException("Coroutine is already running, cannot be started again")
-
-        _isForceStopped = False
-        _isCompleted = False
-
+        If IsRunning Then Throw New InvalidOperationException("Coroutine is already running, cannot be started again")
+       
         ' Create a fresh enumerator if possible
         If reset AndAlso _enumeratorFactory IsNot Nothing Then _enumerator = _enumeratorFactory()
-        _isRunning = True
+        Status = CoroutineStatus.Running
 
         ' Do NOT execute Continue() here - let the caller decide when to start iteration
     End Sub
@@ -136,10 +163,11 @@ Public Class Coroutine(Of T)
     ''' </summary>
     ''' <returns>True if reset was successful, False otherwise.</returns>
     Public Function TryReset() As Boolean
-        If _isRunning Then Return False
+        If IsRunning Then Return False
 
         If _enumeratorFactory IsNot Nothing Then
             _enumerator = _enumeratorFactory()
+            Status = CoroutineStatus.Idle
             Return True
         End If
 
@@ -157,16 +185,15 @@ Public Class Coroutine(Of T)
     ''' </summary>
     ''' <returns>Whether there are more steps to execute.</returns>
     Public Function [Continue]() As Boolean
-        If Not _isRunning Then Throw New InvalidOperationException("Coroutine is not running, cannot continue")
+        If Not IsRunning Then Throw New InvalidOperationException("Coroutine is not running, cannot continue")
         ' If the coroutine is force-stopped or completed, return false.
-        If _isForceStopped OrElse _isCompleted Then Return False
+        If IsForceStopped OrElse IsCompleted Then Return False
 
         Try
             ' Moves the enumerator to the next step.
             Dim hasNext = _enumerator.MoveNext()
             If Not hasNext Then
-                _isCompleted = True
-                _isRunning = False
+                Status = CoroutineStatus.Completed
                 _cleanup?.Invoke()
             End If
             Return hasNext
@@ -180,10 +207,9 @@ Public Class Coroutine(Of T)
     ''' Forces the coroutine to stop, interrupting the execution.
     ''' </summary>
     Public Sub ForceStop()
-        If _isForceStopped Then Exit Sub
+        If IsForceStopped Then Exit Sub
 
-        _isForceStopped = True
-        _isRunning = False
+        Status = CoroutineStatus.ForceStopped
         ' Executes the cleanup action.
         _cleanup?.Invoke()
     End Sub
@@ -192,10 +218,9 @@ Public Class Coroutine(Of T)
     ''' Terminates the coroutine, marking it as completed normally (no exception thrown).
     ''' </summary>
     Public Sub Terminate()
-        If _isCompleted OrElse _isForceStopped Then Exit Sub
+        If IsCompleted OrElse IsForceStopped Then Exit Sub
 
-        _isCompleted = True
-        _isRunning = False
+        Status = CoroutineStatus.Completed
         ' Executes the cleanup action.
         _cleanup?.Invoke()
     End Sub
@@ -224,10 +249,11 @@ Public Class Coroutine(Of T)
     ''' Stops the coroutine and disposes of the enumerator if it implements IDisposable.
     ''' </summary>
     Protected Overridable Sub Dispose(disposing As Boolean)
+        If IsRunning Then Throw New InvalidOperationException("Coroutine is running, cannot dispose")
+
         If Not _isDisposed Then
             If disposing Then
                 ' TODO: dispose managed state (managed objects)
-                ForceStop()
                 If _enumerator IsNot Nothing Then
                     Try
                         DirectCast(_enumerator, IDisposable)?.Dispose()
@@ -263,6 +289,18 @@ Public Class Coroutine(Of T)
                                                   Next coro
                                               End Function()
                                    End Function)
+    End Function
+
+    ''' <summary>
+    ''' Wraps the coroutine in a delegate that can be used to start the coroutine.
+    ''' </summary>
+    ''' <param name="coroutineFunc">Coroutine function that returns an IEnumerable(Of T).</param>
+    ''' <returns>Delegate that can be used to start the coroutine.</returns>
+    Public Shared Function AsDelegate(coroutineFunc As CoroutineFunc(Of T)) As Func(Of T)
+        With New Coroutine(Of T)(coroutineFunc)
+            .Start()
+            Return Function() If(.Continue(), .Current, Nothing)
+        End With
     End Function
 End Class
 
@@ -303,16 +341,4 @@ Public Class Coroutine
     Public Sub New(coroutineFunc As CoroutineFunc(Of Object))
         MyBase.New(coroutineFunc)
     End Sub
-
-    ''' <summary>
-    ''' Wraps the coroutine in a delegate that can be used to start the coroutine.
-    ''' </summary>
-    ''' <param name="coroutineFunc">Coroutine function that returns an IEnumerable(Of Object).</param>
-    ''' <returns>Delegate that can be used to start the coroutine.</returns>
-    Public Shared Function AsDelegate(coroutineFunc As CoroutineFunc(Of Object)) As Func(Of Object)
-        With New Coroutine(Of Object)(coroutineFunc)
-            .Start()
-            Return Function() If(.Continue(), .Current, Nothing)
-        End With
-    End Function
 End Class
