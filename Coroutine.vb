@@ -40,7 +40,15 @@ Public Class Coroutine(Of T)
     Private ReadOnly _sourceEnumerable As IEnumerable(Of T)
 
     ' Marks the status of the coroutine.
-    Public Property Status As CoroutineStatus = CoroutineStatus.Idle
+    Private _status As CoroutineStatus = CoroutineStatus.Idle
+    Public Property Status As CoroutineStatus
+        Get
+            Return _status
+        End Get
+        Private Set(value As CoroutineStatus)
+            _status = value
+        End Set
+    End Property
 
     ' Action to be performed when the coroutine is cleaned up.
     Private _cleanup As Action = Nothing

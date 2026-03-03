@@ -2,23 +2,25 @@
 
 A lightweight, pure .NET implementation of coroutines inspired by Lua's cooperative multitasking model, written in VB.NET but fully compatible with C#.
 
+**Change in 1.0.4**: The `Status` property is now re-written as a `{ get; private set; }` pattern, to avoid unexpected external access to the set accessor.
+
 ## Requirements
 - [.NET 8.0](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) or later
 - Works with VB.NET, C#, F#, and any .NET language
 
 ## Features
-- ✅ **Lightweight** - No external dependencies, minimal memory footprint
-- ✅ **Data-focused** - Not tied to time or game loops, works with any data type
-- ✅ **Two-way communication** - Pass data back into coroutines with `ResumeWith(value)`
-- ✅ **Type-safe** - Generic implementation with strong typing
-- ✅ **LINQ Support** - Full LINQ integration for data manipulation
-- ✅ **Lua-friendly** - Includes `coroutine.wrap` functionality via `AsDelegate`
-- ✅ **Resource-aware** - Implements `IDisposable` for proper resource management
-- ✅ **Status Management** - Comprehensive status properties (`IsIdle`, `IsRunning`, `IsCompleted`, `IsForceStopped`)
-- ✅ **Reset Capability** - `TryReset()` method to reset coroutine state
-- ✅ **Fresh Copy** - `FreshCopy()` method to create a new coroutine instance with the same source
-- ✅ **Coroutine Concatenation** - `Concat()` method to combine multiple coroutines
-- ✅ **Enhanced LINQ** - Full set of LINQ extension methods including `Take`, `Skip`, `SelectMany`, `Zip`, and more
+- **Lightweight** - No external dependencies, minimal memory footprint
+- **Data-focused** - Not tied to time or game loops, works with any data type
+- **Two-way communication** - Pass data back into coroutines with `ResumeWith(value)`
+- **Type-safe** - Generic implementation with strong typing
+- **LINQ Support** - Full LINQ integration for data manipulation
+- **Lua-friendly** - Includes `coroutine.wrap` functionality via `AsDelegate`
+- **Resource-aware** - Implements `IDisposable` for proper resource management
+- **Status Management** - Comprehensive status properties, including `Status` as an enum and `IsIdle`, `IsRunning`, `IsCompleted`, `IsForceStopped` as boolean flags.
+- **Reset Capability** - `TryReset()` method to reset coroutine state
+- **Fresh Copy** - `FreshCopy()` method to create a new coroutine instance with the same source
+- **Coroutine Concatenation** - `Concat()` method to combine multiple coroutines
+- **Enhanced LINQ** - Full set of LINQ extension methods including `Take`, `Skip`, `SelectMany`, `Zip`, and more
 
 ## Quick Example
 - **VB.NET**:
@@ -200,7 +202,7 @@ Suppose `coro` is an instance of `Coroutine(Of T)` (or `Coroutine<T>` in C#):
 | `coroutine.create(f)` | `Dim coro As New Coroutine(Of T)(f)` | Creates a new coroutine |
 | `coroutine.resume(co)` | `coro.Continue()` | Resumes the coroutine |
 | `coroutine.resume(co, val)` | `coro.ResumeWith(val)` | Resumes with a value |
-| `coroutine.status(co)` | `coro.IsRunning`/`coro.IsCompleted` | Checks the coroutine status |
+| `coroutine.status(co)` | `coro.Status` | Checks the coroutine status |
 | `coroutine.wrap(f)` | `Coroutine(Of T).AsDelegate(f)` | Wraps as a delegate |
 | `coroutine.yield(val)` | `Yield val` | Yields a value |
 | `coroutine.close(co)` | `coro.Dispose()` | Closes the coroutine (releases resources) |
