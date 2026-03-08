@@ -3,10 +3,13 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>LuaStyleCoroutines</RootNamespace>
+    <OptionExplicit>On</OptionExplicit>
+    <OptionStrict>On</OptionStrict>
+    <OptionInfer>On</OptionInfer>
     
     <!-- NuGet Package Metadata -->
     <PackageId>LuaStyleCoroutines</PackageId>
-    <Version>1.0.4</Version>
+    <Version>1.0.5</Version>
     <Authors>Pac-Dessert1436</Authors>
     <Company></Company>
     <Description>Lightweight Lua-style coroutines for .NET, with LINQ support and two-way communication.</Description>

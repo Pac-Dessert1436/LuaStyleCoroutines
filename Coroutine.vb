@@ -5,6 +5,11 @@
 Public Delegate Function CoroutineFunc(Of T)() As IEnumerable(Of T)
 
 ''' <summary>
+''' Delegate for a coroutine function that returns an IEnumerable(Of Object).
+''' </summary>
+Public Delegate Function CoroutineFunc() As IEnumerable(Of Object)
+
+''' <summary>
 ''' Status of a coroutine.
 ''' </summary>
 Public Enum CoroutineStatus As Byte
@@ -162,6 +167,9 @@ Public Class Coroutine(Of T)
         ' Create a fresh enumerator if possible
         If reset AndAlso _enumeratorFactory IsNot Nothing Then _enumerator = _enumeratorFactory()
         Status = CoroutineStatus.Running
+        
+        ' Set as current running coroutine
+        CoroutineManager.SetCurrentCoroutine(Me)
 
         ' Do NOT execute Continue() here - let the caller decide when to start iteration
     End Sub
@@ -198,11 +206,16 @@ Public Class Coroutine(Of T)
         If IsForceStopped OrElse IsCompleted Then Return False
 
         Try
+            ' Set as current running coroutine
+            CoroutineManager.SetCurrentCoroutine(Me)
+            
             ' Moves the enumerator to the next step.
             Dim hasNext = _enumerator.MoveNext()
             If Not hasNext Then
                 Status = CoroutineStatus.Completed
                 _cleanup?.Invoke()
+                ' Clear current coroutine when completed
+                CoroutineManager.SetCurrentCoroutine(Nothing)
             End If
             Return hasNext
         Catch
@@ -220,6 +233,12 @@ Public Class Coroutine(Of T)
         Status = CoroutineStatus.ForceStopped
         ' Executes the cleanup action.
         _cleanup?.Invoke()
+        
+        ' Clear current coroutine if this was the running one
+        Dim current = CoroutineManager.Running().coroutine
+        If ReferenceEquals(current, Me) Then
+            CoroutineManager.SetCurrentCoroutine(Nothing)
+        End If
     End Sub
 
     ''' <summary>
@@ -231,6 +250,12 @@ Public Class Coroutine(Of T)
         Status = CoroutineStatus.Completed
         ' Executes the cleanup action.
         _cleanup?.Invoke()
+        
+        ' Clear current coroutine if this was the running one
+        Dim current = CoroutineManager.Running().coroutine
+        If ReferenceEquals(current, Me) Then
+            CoroutineManager.SetCurrentCoroutine(Nothing)
+        End If
     End Sub
 
     ''' <summary>
@@ -310,6 +335,41 @@ Public Class Coroutine(Of T)
             Return Function() If(.Continue(), .Current, Nothing)
         End With
     End Function
+    
+    ''' <summary>
+    ''' Gets the currently running coroutine and whether it's the main coroutine.
+    ''' Similar to Lua's coroutine.running().
+    ''' </summary>
+    ''' <returns>A tuple containing the current coroutine (or Nothing if main) and a boolean indicating if it's the main coroutine.</returns>
+    Public Shared Function Running() As (coroutine As Coroutine(Of T), isMain As Boolean)
+        Dim result = CoroutineManager.Running()
+        Dim typedCoroutine As Coroutine(Of T) = Nothing
+        
+        If TypeOf result.coroutine Is Coroutine(Of T) Then
+            typedCoroutine = DirectCast(result.coroutine, Coroutine(Of T))
+        End If
+        
+        Return (typedCoroutine, result.isMain)
+    End Function
+    
+    ''' <summary>
+    ''' Checks if the specified coroutine can yield. If no coroutine is specified, checks the current one.
+    ''' Similar to Lua's coroutine.isyieldable().
+    ''' </summary>
+    ''' <param name="coroutine">The coroutine to check (optional, defaults to current).</param>
+    ''' <returns>True if the coroutine can yield, False otherwise.</returns>
+    Public Shared Function IsYieldable(Optional coroutine As Coroutine(Of T) = Nothing) As Boolean
+        If coroutine Is Nothing Then
+            Dim current = CoroutineManager.Running().coroutine
+            If TypeOf current Is Coroutine(Of T) Then
+                coroutine = DirectCast(current, Coroutine(Of T))
+            Else
+                Return False
+            End If
+        End If
+        
+        Return CoroutineManager.IsYieldable(coroutine)
+    End Function
 End Class
 
 ''' <summary>
@@ -346,7 +406,53 @@ Public Class Coroutine
     ''' Initializes a coroutine from a function that returns an IEnumerable(Of Object).
     ''' </summary>
     ''' <param name="coroutineFunc">Coroutine function that returns an IEnumerable(Of Object).</param>
-    Public Sub New(coroutineFunc As CoroutineFunc(Of Object))
+    Public Sub New(coroutineFunc As CoroutineFunc)
         MyBase.New(coroutineFunc)
     End Sub
+
+    ''' <summary>
+    ''' Wraps the coroutine in a delegate that can be used to start the coroutine.
+    ''' </summary>
+    ''' <param name="coroutineFunc">Coroutine function that returns an IEnumerable(Of Object).</param>
+    ''' <returns>Delegate that can be used to start the coroutine.</returns>
+    Public Shared Shadows Function AsDelegate(coroutineFunc As CoroutineFunc) As Func(Of Object)
+        With New Coroutine(coroutineFunc)
+            .Start()
+            Return Function() If(.Continue(), .Current, Nothing)
+        End With
+    End Function
+
+    ''' <summary>
+    ''' Gets the currently running coroutine and whether it's the main coroutine.
+    ''' Similar to Lua's coroutine.running().
+    ''' </summary>
+    ''' <returns>A tuple containing the current coroutine (or Nothing if main), 
+    ''' and a boolean indicating if it's the main coroutine.</returns>
+    Public Shared Shadows Function Running() As (coroutine As Coroutine, isMain As Boolean)
+        Dim result = CoroutineManager.Running()
+        Dim coro As Coroutine = Nothing
+
+        If TypeOf result.coroutine Is Coroutine Then coro = DirectCast(result.coroutine, Coroutine)
+
+        Return (coro, result.isMain)
+    End Function
+
+    ''' <summary>
+    ''' Checks if the specified coroutine can yield. If no coroutine is specified, checks 
+    ''' the current one. Similar to Lua's coroutine.isyieldable().
+    ''' </summary>
+    ''' <param name="coroutine">The coroutine to check (optional, defaults to current).</param>
+    ''' <returns>True if the coroutine can yield, False otherwise.</returns>
+    Public Shared Shadows Function IsYieldable(Optional coroutine As Coroutine = Nothing) As Boolean
+        If coroutine Is Nothing Then
+            Dim current = CoroutineManager.Running().coroutine
+            If TypeOf current Is Coroutine Then
+                coroutine = DirectCast(current, Coroutine)
+            Else
+                Return False
+            End If
+        End If
+
+        Return CoroutineManager.IsYieldable(coroutine)
+    End Function
 End Class
