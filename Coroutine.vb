@@ -163,11 +163,11 @@ Public Class Coroutine(Of T)
     Public Sub Start(Optional reset As Boolean = True)
         ' Resets the state of the coroutine
         If IsRunning Then Throw New InvalidOperationException("Coroutine is already running, cannot be started again")
-       
+
         ' Create a fresh enumerator if possible
         If reset AndAlso _enumeratorFactory IsNot Nothing Then _enumerator = _enumeratorFactory()
         Status = CoroutineStatus.Running
-        
+
         ' Set as current running coroutine
         CoroutineManager.SetCurrentCoroutine(Me)
 
@@ -208,7 +208,7 @@ Public Class Coroutine(Of T)
         Try
             ' Set as current running coroutine
             CoroutineManager.SetCurrentCoroutine(Me)
-            
+
             ' Moves the enumerator to the next step.
             Dim hasNext = _enumerator.MoveNext()
             If Not hasNext Then
@@ -233,12 +233,10 @@ Public Class Coroutine(Of T)
         Status = CoroutineStatus.ForceStopped
         ' Executes the cleanup action.
         _cleanup?.Invoke()
-        
+
         ' Clear current coroutine if this was the running one
         Dim current = CoroutineManager.Running().coroutine
-        If ReferenceEquals(current, Me) Then
-            CoroutineManager.SetCurrentCoroutine(Nothing)
-        End If
+        If current Is Me Then CoroutineManager.SetCurrentCoroutine(Nothing)
     End Sub
 
     ''' <summary>
@@ -250,12 +248,10 @@ Public Class Coroutine(Of T)
         Status = CoroutineStatus.Completed
         ' Executes the cleanup action.
         _cleanup?.Invoke()
-        
+
         ' Clear current coroutine if this was the running one
         Dim current = CoroutineManager.Running().coroutine
-        If ReferenceEquals(current, Me) Then
-            CoroutineManager.SetCurrentCoroutine(Nothing)
-        End If
+        If current Is Me Then CoroutineManager.SetCurrentCoroutine(Nothing)
     End Sub
 
     ''' <summary>
@@ -335,7 +331,7 @@ Public Class Coroutine(Of T)
             Return Function() If(.Continue(), .Current, Nothing)
         End With
     End Function
-    
+
     ''' <summary>
     ''' Gets the currently running coroutine and whether it's the main coroutine.
     ''' Similar to Lua's coroutine.running().
@@ -344,14 +340,14 @@ Public Class Coroutine(Of T)
     Public Shared Function Running() As (coroutine As Coroutine(Of T), isMain As Boolean)
         Dim result = CoroutineManager.Running()
         Dim typedCoroutine As Coroutine(Of T) = Nothing
-        
+
         If TypeOf result.coroutine Is Coroutine(Of T) Then
             typedCoroutine = DirectCast(result.coroutine, Coroutine(Of T))
         End If
-        
+
         Return (typedCoroutine, result.isMain)
     End Function
-    
+
     ''' <summary>
     ''' Checks if the specified coroutine can yield. If no coroutine is specified, checks the current one.
     ''' Similar to Lua's coroutine.isyieldable().
@@ -367,7 +363,7 @@ Public Class Coroutine(Of T)
                 Return False
             End If
         End If
-        
+
         Return CoroutineManager.IsYieldable(coroutine)
     End Function
 End Class
@@ -426,7 +422,7 @@ Public Class Coroutine
     ''' Gets the currently running coroutine and whether it's the main coroutine.
     ''' Similar to Lua's coroutine.running().
     ''' </summary>
-    ''' <returns>A tuple containing the current coroutine (or Nothing if main), 
+    ''' <returns>A tuple containing the current coroutine (or Nothing if main),
     ''' and a boolean indicating if it's the main coroutine.</returns>
     Public Shared Shadows Function Running() As (coroutine As Coroutine, isMain As Boolean)
         Dim result = CoroutineManager.Running()
@@ -438,7 +434,7 @@ Public Class Coroutine
     End Function
 
     ''' <summary>
-    ''' Checks if the specified coroutine can yield. If no coroutine is specified, checks 
+    ''' Checks if the specified coroutine can yield. If no coroutine is specified, checks
     ''' the current one. Similar to Lua's coroutine.isyieldable().
     ''' </summary>
     ''' <param name="coroutine">The coroutine to check (optional, defaults to current).</param>
